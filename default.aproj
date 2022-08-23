@@ -1,0 +1,13 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<project ver="10" name="Maplestory079_MAC_Bypass" libEmbed="true" icon="res\logo.ico" ui="win" output="Maplestory079_MAC_Bypass.exe" CompanyName="G" FileDescription="079冒险岛MAC绕过器" LegalCopyright="Copyright (C) G 2022" ProductName="079冒险岛MAC绕过器" InternalName="079冒险岛MAC绕过器" FileVersion="0.0.0.49" ProductVersion="0.0.0.49" publishDir="/dist/" dstrip="false" local="false" ignored="false">
+	<file name="main.aardio" path="main.aardio" comment="main.aardio"/>
+	<folder name="资源文件" path="res" embed="true" local="false" ignored="false">
+		<file name="spy.cur" path="res\spy.cur" comment="res\spy.cur"/>
+		<file name="spy.png" path="res\spy.png" comment="res\spy.png"/>
+		<file name="logo.ico" path="res\logo.ico" comment="res\logo.ico"/>
+		<file name="m2.jpg" path="res\m2.jpg" comment="res\m2.jpg"/>
+	</folder>
+	<folder name="窗体文件" path="dlg" comment="目录" embed="true" local="false" ignored="false">
+		<file name="FunWindow.aardio" path="dlg\FunWindow.aardio" comment="dlg\1.aardio"/>
+	</folder>
+</project>

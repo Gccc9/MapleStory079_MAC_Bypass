@@ -1,0 +1,148 @@
+import win.ui;
+import win.cur;
+import process
+/*DSG{{*/
+var funForm = win.form(text="aardio form";right=351;bottom=223;image=$"\res\m2.jpg";bkBottom=0;bkLeft=0;bkRight=0;bkTop=0;border="none";max=false)
+funForm.add(
+spy={cls="plus";left=160;top=112;right=192;bottom=142;background="\res\spy.png";db=1;dl=1;dt=1;foreRepeat="center";notify=1;z=1};
+static2={cls="static";text="拖动图标到目标窗口";left=88;top=56;right=264;bottom=86;align="center";center=1;color=16760919;font=LOGFONT(h=-16;name='思源黑体';weight=700);notify=1;transparent=1;z=2}
+)
+/*}}*/
+
+var prc
+
+// 退出程序时的动画
+import win.ui.fade;
+win.ui.fade(funForm)
+
+
+// 设置无边框模板
+import win.ui.simpleWindow;
+win.ui.simpleWindow(funForm)
+
+
+// 设置圆角
+import win.region.round
+win.region.round(funForm)
+
+
+import winex
+// 打开控制台
+//io.open()
+
+var spyCur = win.cur.loadfile("\res\spy.cur")
+// 设置spy的处理回调函数
+funForm.spy.wndproc = function(hwnd,message,wParam,lParam){
+	select(message) {
+		case 0x201/*_WM_LBUTTONDOWN*/{
+			funForm.spy.background = null
+			win.cur.setCur(topointer(spyCur))
+			funForm.spy.capture = true
+		}
+		case 0x202/*_WM_LBUTTONUP*/{
+			
+			// 拖动到的窗口句柄
+			var hwnd
+			// 拖到到的进程ID
+			var pid
+			
+            funForm.spy.background = $"\res\spy.png";
+            funForm.spy.capture = false; //释放鼠标
+            win.cur.endCur(); //恢复正常鼠标指针
+            var x,y = win.getCursorPos() // 获取鼠标的XY位置
+            hwnd = winex.fromPoint(x,y) // 从鼠标的XY获取相对应的进程句柄
+            // 判断是否获取成功
+            if(hwnd == 0){
+            	win.msgboxErr("打开窗口失败!","错误")
+            	return
+            }
+            // 获取对应的类名进行判断
+			var className = win.getClass(hwnd)
+			if(className != "MapleStoryClass"){
+				win.msgboxErr("请拖动到MapleStory进程窗口！","选择错误")
+				return
+			}
+            // 根据窗口句柄获取进程ID 返回线程ID，进程ID
+            _,pid = win.getThreadProcessId(hwnd)
+            // 判断是否获取成功
+            if(pid == 0){
+                win.msgboxErr("打开进程ID错误!","错误")
+            	return
+            }
+            
+			
+			// 获取进程句柄
+			var hProcess = process.OpenProcess( 0x1F0FFF/*_PROCESS_ALL_ACCESS*/,false ,pid);
+						// 判断是否获取权限成功
+            			if(hProcess == 0){
+                			win.msgboxErr("获取进程句柄错误!","错误")
+            				return
+            			}
+			
+			// 打开进程
+            prc = process(pid)
+            // 通过AOB特征找到目标地址
+            var targetFunAddress = FindAOBAddress(prc,'\x50\x8D\x4D\xDC\xE8\x4C\xBA\xDD\xFF\x8B\x0D\x24\x90\xBD\x00',-24)
+            if(targetFunAddress == 0){
+                win.msgboxErr("获取目标地址失败，多开失败！","错误")
+            	return
+            }
+            // 判断是否已经注入过？
+            var testCode = prc.readString(targetFunAddress + 5,1)
+            
+            if(string.hex(testCode) == "\x90"){
+                win.msgbox("窗口句柄:"+ tostring(hwnd) +" - 已经多开,请勿重复选择！","信息")
+                return
+            }
+            
+            // 保存原始的汇编码
+            var oc = prc.readString(targetFunAddress,6)
+            // 使用自己分配的对象时有坑，当自己回收该对象时，连同自己分配在该内存空间的内存一并回收。
+            //var mallocAddress = prc.malloc(2048)
+            // 故应该打开目标进程，使目标进程自己来进行分配
+			var mallocAddress = process.VirtualAllocEx(hProcess,0,2048,0x1000/*_MEM_COMMIT*/,0x40/*_PAGE_EXECUTE_READWRITE*/)
+			
+            // originJmpAddr是要写入的跳转到HOOK地址的字节码 获取跳转到的地址的JMP指令的字节码 0x8953CB,在内存中是小端字节序，0xCB538900 最后加个90 nop 这里的结果是整数型
+            var originJmpAddr = mallocAddress - (targetFunAddress + 5)
+            // 注入的代码
+            var injectBuffer = raw.buffer('\x60\x8B\x10\x66\x83\xFA\x01\x75\x1B\x0F\x1F\x40\x00\x01\xC8\x83\xE8\x10\x8B\xD8\xB9\x04\x00\x00\x00\x48\x0F\xC7\xF0\x89\x03\x83\xC3\x04\xE2\xF5\x61' + oc)
+            // 在HOOK里面修复被修改了的字节码，执行该操作后返回
+            // hookJmpAddr 是要写入的跳转到原地址的字节码，与上面相同。
+            var hookJmpAddr = targetFunAddress - (mallocAddress + #injectBuffer + 5) + 6
+            // 向新申请的内存空间写入HOOK代码
+            injectAddr = prc.writeString(mallocAddress,injectBuffer,#injectBuffer)
+            if(injectAddr == 0){
+                win.msgboxErr("注入内存失败！","错误")
+            	return
+            }
+            // 修复HOOK代码的跳转(如果程序频繁调用，则应该在前面进行修复)
+            prc.write(mallocAddress + #injectBuffer,'\xE9')
+            prc.writeNumber(mallocAddress + #injectBuffer + 1,hookJmpAddr)
+            
+            // 修改原函数操作码
+            prc.write(targetFunAddress,'\xE9')
+            prc.writeNumber(targetFunAddress + 1,originJmpAddr)
+            prc.write(targetFunAddress + 5,'\x90')
+            
+            win.msgbox("窗口句柄:"+ tostring(hwnd) +" - 多开成功！","信息")
+            	
+        }
+	}
+}
+
+
+// 传入进程句柄以及AOB,返回找到的特征码的地址，若找不到，返回0
+FindAOBAddress = function(prc,aob,offset){
+	var address,len,str,pos,endp,par = prc.query(,,aob)
+	if(address == null){
+		return 0
+	}
+	if(pos == null){
+		return 0
+	}
+	return prc.getModuleBaseAddress() + pos + offset
+}
+
+funForm.show();
+win.loopMessage();
+return funForm;

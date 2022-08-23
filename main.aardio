@@ -1,0 +1,11 @@
+import win.ui;
+import win.reg
+/*DSG{{*/
+mainForm = win.form(text="mhmxd_mul";right=0;bottom=0;border="none")
+mainForm.add()
+/*}}*/
+
+
+win.loadForm("\dlg\FunWindow.aardio")
+mainForm.close()
+return win.loopMessage();
